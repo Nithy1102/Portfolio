@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tute</title>
+<style>
+html, body {
+  margin:0;
+  padding:0;
+  height:100%;
+  overflow:hidden;
+  font-family: Arial, sans-serif;
+}
+canvas {
+  display:block;
+}
+.content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  text-align: center;
+  padding: 40px 50px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.3);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+  color: #0D2440;
+}
+</style>
+</head>
+<body>
+    
+
+<canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let width, height;
+
+function resize() {
+  width = window.innerWidth;
+  height = window.innerHeight;
+  canvas.width = width;
+  canvas.height = height;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Gradient background
+const gradientCanvas = document.createElement('canvas');
+gradientCanvas.width = width;
+gradientCanvas.height = height;
+const gctx = gradientCanvas.getContext('2d');
+const gradient = gctx.createLinearGradient(0,0,0,height);
+gradient.addColorStop(0, "#E7F0FA");
+gradient.addColorStop(0.25, "#BFD7EE");
+gradient.addColorStop(0.55, "#7BA4D0");
+gradient.addColorStop(0.8, "#2E5E99");
+gradient.addColorStop(1, "#0D2440");
+gctx.fillStyle = gradient;
+gctx.fillRect(0,0,width,height);
+
+// Ripple class
+let ripples = [];
+class Ripple {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.radius = 0;
+    this.maxRadius = Math.max(width, height);
+    this.strength = 8;
+    this.speed = 4;
+    this.phase = 0;
+  }
+  update() {
+    this.radius += this.speed;
+    this.phase += 0.05;   // smoother swirl
+  }
+  isDone() {
+    return this.radius > this.maxRadius;
+  }
+}
+
+function draw() {
+  ctx.clearRect(0,0,width,height);
+  ctx.drawImage(gradientCanvas, 0,0);
+
+  const image = ctx.getImageData(0,0,width,height);
+  const data = image.data;
+
+  ripples.forEach(ripple => {
+    const r = ripple.radius;
+    const cx = ripple.x;
+    const cy = ripple.y;
+
+    for(let y=0; y<height; y+=2){
+      for(let x=0; x<width; x+=2){
+        const dx = x - cx;
+        const dy = y - cy;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+
+        if(dist < r + 50 && dist > r - 50){
+
+          // 🌪 SPIRAL RIPPLE EFFECT
+          const angle = Math.atan2(dy, dx);
+          const swirl = angle * 4;   // adjust 4 → 6 for stronger spiral
+          const wave = Math.sin((dist - r)/10 + swirl) 
+                       * ripple.strength 
+                       * (1 - r/ripple.maxRadius);
+
+          let nx = x;
+          let ny = y;
+
+          const idx = (y*width + x)*4;
+          const nidx = (
+            Math.max(0,Math.min(height-1, y + wave | 0)) * width +
+            Math.max(0,Math.min(width-1, x + wave | 0))
+          ) * 4;
+
+          data[idx] = data[nidx];
+          data[idx+1] = data[nidx+1];
+          data[idx+2] = data[nidx+2];
+        }
+      }
+    }
+  });
+
+  ctx.putImageData(image, 0,0);
+
+  ripples.forEach((r,i)=>{
+    r.update();
+    if(r.isDone()) ripples.splice(i,1);
+  });
+
+  requestAnimationFrame(draw);
+}
+draw();
+
+// click ripple
+canvas.addEventListener('click', e=>{
+  ripples.push(new Ripple(e.clientX, e.clientY));
+});
+
+// auto ripple
+setInterval(()=>{
+  ripples.push(new Ripple(width/2, height/2));
+}, 5000);
+</script>
+
+</body>
+</html>
